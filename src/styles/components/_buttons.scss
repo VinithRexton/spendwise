@@ -1,0 +1,24 @@
+@use "../abstracts/variables" as *;
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.7rem 1rem;
+  border: 0;
+  border-radius: $radius-md;
+  background: $color-primary;
+  color: #fff;
+  font-weight: 600;
+
+  &:hover {
+    background: $color-primary-hover;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}

@@ -1,0 +1,369 @@
+@use "../abstracts/variables" as *;
+@use "../abstracts/mixins" as *;
+
+.auth-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(480px, 1.1fr);
+  background: $color-surface;
+}
+
+.auth-aside {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(2rem, 5vw, 4.5rem);
+  color: #fff;
+  background:
+    radial-gradient(circle at 15% 85%, rgba(255, 255, 255, 0.14), transparent 34%),
+    linear-gradient(145deg, #5148e5 0%, #635bff 52%, #827bff 100%);
+
+  &__content {
+    max-width: 490px;
+    margin-block: auto;
+    padding-block: 4rem;
+  }
+
+  h1 {
+    max-width: 460px;
+    margin: 1.1rem 0;
+    font-size: clamp(2.6rem, 4vw, 4.5rem);
+    line-height: 1.05;
+    letter-spacing: -0.055em;
+  }
+
+  p {
+    max-width: 420px;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 1.05rem;
+    line-height: 1.75;
+  }
+
+  &__footer {
+    margin: 0;
+    font-size: 0.82rem;
+  }
+
+  &__dots {
+    display: flex;
+    gap: 0.45rem;
+    margin-top: 2rem;
+
+    span {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.55);
+
+      &:first-child {
+        width: 25px;
+        border-radius: 10px;
+        background: #fff;
+      }
+    }
+  }
+}
+
+.auth-brand,
+.auth-card__mobile-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 1.1rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+
+  &__mark {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
+    background: rgba(255, 255, 255, 0.18);
+  }
+}
+
+.auth-main {
+  display: grid;
+  place-items: center;
+  padding: 3rem clamp(1.25rem, 5vw, 5rem);
+  background: #fbfbfd;
+}
+
+.auth-card {
+  width: min(100%, 440px);
+
+  &--compact {
+    max-width: 420px;
+  }
+
+  h2 {
+    margin: 0.55rem 0 0.65rem;
+    color: $color-text;
+    font-size: clamp(1.8rem, 3vw, 2.25rem);
+    line-height: 1.2;
+    letter-spacing: -0.045em;
+  }
+
+  &__intro {
+    margin-bottom: 1.8rem;
+    color: $color-muted;
+    font-size: 0.94rem;
+    line-height: 1.65;
+  }
+
+  &__switch {
+    margin: 1.7rem 0 0;
+    color: $color-muted;
+    text-align: center;
+    font-size: 0.9rem;
+
+    a {
+      color: $color-primary;
+      font-weight: 700;
+    }
+  }
+
+  &__mobile-brand {
+    display: none;
+    margin-bottom: 2.2rem;
+    color: $color-primary;
+  }
+}
+
+.eyebrow {
+  display: inline-block;
+  color: $color-primary;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+
+  &--light {
+    color: rgba(255, 255, 255, 0.8);
+  }
+}
+
+.auth-form {
+  display: grid;
+  gap: 1.15rem;
+
+  &__meta {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: -0.35rem;
+
+    a {
+      color: $color-primary;
+      font-size: 0.84rem;
+      font-weight: 650;
+    }
+  }
+}
+
+.form-field {
+  display: grid;
+  gap: 0.5rem;
+
+  > span:first-child {
+    color: #343443;
+    font-size: 0.84rem;
+    font-weight: 650;
+  }
+}
+
+.form-input-wrap {
+  display: flex;
+  align-items: center;
+  min-height: 50px;
+  gap: 0.7rem;
+  padding: 0 0.9rem;
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  background: #fff;
+  color: #9696a3;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+
+  &:focus-within {
+    border-color: $color-primary;
+    box-shadow: 0 0 0 3px rgba($color-primary, 0.1);
+  }
+
+  input {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: $color-text;
+    font-size: 0.9rem;
+
+    &::placeholder {
+      color: #aaaab4;
+    }
+  }
+}
+
+.password-toggle {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0.25rem;
+  border: 0;
+  background: transparent;
+  color: #92929d;
+}
+
+.button {
+  display: inline-flex;
+  min-height: 49px;
+  align-items: center;
+  justify-content: center;
+  padding: 0.8rem 1.2rem;
+  border: 0;
+  border-radius: $radius-md;
+  font-weight: 700;
+  transition: background 160ms ease, transform 160ms ease;
+  cursor: pointer;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+  }
+
+  &--primary {
+    background: $color-primary;
+    color: #fff;
+
+    &:hover:not(:disabled) {
+      background: $color-primary-hover;
+      transform: translateY(-1px);
+    }
+  }
+
+  &--full {
+    width: 100%;
+    margin-top: 0.35rem;
+  }
+}
+
+.form-alert {
+  margin-bottom: 1.1rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid transparent;
+  border-radius: $radius-sm;
+  font-size: 0.84rem;
+  line-height: 1.5;
+
+  &--error {
+    border-color: #f2caca;
+    background: #fff4f4;
+    color: #a52c2c;
+  }
+
+  &--success {
+    border-color: #c6ead9;
+    background: #f0fbf5;
+    color: #176b48;
+  }
+
+  a {
+    font-weight: 700;
+    text-decoration: underline;
+  }
+}
+
+.auth-icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  margin-bottom: 1.4rem;
+  border-radius: 16px;
+  background: #efeeff;
+  color: $color-primary;
+}
+
+.auth-back-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  color: $color-muted;
+  font-size: 0.88rem;
+  font-weight: 650;
+
+  &:hover {
+    color: $color-primary;
+  }
+}
+
+.route-loading,
+.dashboard-placeholder {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 1.5rem;
+  background: $color-background;
+}
+
+.route-loading {
+  color: $color-muted;
+}
+
+.loading-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid $color-border;
+  border-top-color: $color-primary;
+  border-radius: 50%;
+  animation: auth-spin 0.8s linear infinite;
+}
+
+@keyframes auth-spin {
+  to { transform: rotate(360deg); }
+}
+
+.dashboard-placeholder__card {
+  @include card;
+  width: min(100%, 480px);
+  padding: 2.5rem;
+
+  h1 {
+    margin: 0.7rem 0;
+  }
+
+  .muted {
+    color: $color-muted;
+  }
+}
+
+@include respond-to(lg) {
+  .auth-shell {
+    grid-template-columns: minmax(280px, 0.75fr) minmax(420px, 1.25fr);
+  }
+
+  .auth-aside {
+    padding: 2.5rem;
+  }
+}
+
+@include respond-to(md) {
+  .auth-shell {
+    display: block;
+  }
+
+  .auth-aside {
+    display: none;
+  }
+
+  .auth-main {
+    min-height: 100vh;
+    padding: 2rem 1.25rem;
+  }
+
+  .auth-card__mobile-brand {
+    display: flex;
+  }
+}

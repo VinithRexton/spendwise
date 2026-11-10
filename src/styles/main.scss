@@ -1,0 +1,9 @@
+// Global styles and authentication module styles.
+@use "base/reset";
+@use "base/typography";
+@use "base/global";
+
+@use "components/buttons";
+@use "layouts/container";
+@use "pages/auth";
+@use "pages/dashboard";

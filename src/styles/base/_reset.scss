@@ -1,0 +1,31 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}

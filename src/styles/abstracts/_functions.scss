@@ -1,0 +1,4 @@
+// Add reusable Sass functions here as the design system grows.
+@function rem($pixels) {
+  @return ($pixels / 16) * 1rem;
+}

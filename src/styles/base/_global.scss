@@ -1,0 +1,22 @@
+@use "../abstracts/variables" as *;
+
+body {
+  background: $color-background;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+a {
+  color: $color-primary;
+  text-decoration: none;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba($color-primary, 0.25);
+  outline-offset: 2px;
+}

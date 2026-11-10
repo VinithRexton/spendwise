@@ -1,0 +1,22 @@
+// Design tokens: update these values to theme the application.
+$color-primary: #635bff;
+$color-primary-hover: #5148e5;
+$color-text: #191925;
+$color-muted: #777783;
+$color-border: #e8e8ef;
+$color-background: #f7f7fa;
+$color-surface: #ffffff;
+$color-danger: #dc4545;
+$color-success: #16845b;
+
+$font-family-base: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+$radius-sm: 8px;
+$radius-md: 14px;
+$radius-lg: 20px;
+
+$shadow-card: 0 8px 28px rgba(25, 25, 37, 0.06);
+
+$breakpoint-sm: 576px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 1024px;
