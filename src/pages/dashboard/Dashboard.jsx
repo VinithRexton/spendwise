@@ -5,11 +5,12 @@ import {
   CreditCard, FileText, Film, Gift, GraduationCap, HeartPulse, House,
   LogOut, Menu, MoreHorizontal, Pencil, Plane, Plus, Receipt,
   Search, Settings, ShoppingBag, ShoppingCart, Trash2, Utensils,
-  Wallet, X, UserRound, BriefcaseBusiness, Image as ImageIcon,
+  Wallet, X, UserRound, BriefcaseBusiness, Image as ImageIcon, Mail, UserPlus,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useExpenses } from '../../context/ExpenseContext';
 import { useWorkspace } from '../../context/WorkspaceContext';
+import { supabase } from '../../lib/supabase';
 
 const CURRENCIES = [
   { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
@@ -136,7 +137,7 @@ function ImagePicker({ file, currentUrl, onChange, onRemove, label = 'Attach ima
   );
 }
 
-function ExpenseForm({ initial, currencyCode, onSave, onCancel, saving }) {
+function ExpenseForm({ initial, currencyCode, onSave, onCancel, saving, allowImage = true }) {
   const [form, setForm] = useState({
     amount: initial?.amount ?? '',
     category: initial?.category ?? 'Food & Groceries',
@@ -204,15 +205,17 @@ function ExpenseForm({ initial, currencyCode, onSave, onCancel, saving }) {
         <textarea rows="3" maxLength="500" placeholder="What was this expense for?" value={form.note} onChange={(event) => setField('note', event.target.value)} />
       </label>
 
-      <div className="dashboard-field">
-        <span>Receipt or expense photo <small>Optional</small></span>
-        <ImagePicker
-          file={imageFile}
-          currentUrl={removeImage ? null : initial?.image_url}
-          onChange={(file) => { setImageFile(file); setRemoveImage(false); }}
-          onRemove={() => { setImageFile(null); setRemoveImage(true); }}
-        />
-      </div>
+      {allowImage && (
+        <div className="dashboard-field">
+          <span>Receipt or expense photo <small>Optional</small></span>
+          <ImagePicker
+            file={imageFile}
+            currentUrl={removeImage ? null : initial?.image_url}
+            onChange={(file) => { setImageFile(file); setRemoveImage(false); }}
+            onRemove={() => { setImageFile(null); setRemoveImage(true); }}
+          />
+        </div>
+      )}
 
       <footer className="expense-form__footer">
         <button className="button button--outline" type="button" onClick={onCancel}>Cancel</button>
@@ -321,9 +324,10 @@ function Dashboard() {
   const { user, signOut } = useAuth();
   const {
     expenses, sharedExpenses, profile, loading, saving,
-    addExpense, addSharedExpense, updateExpense, deleteExpense, saveProfile, refresh, fetchSharedExpenses,
+    addExpense, addSharedExpense, updateExpense, deleteExpense,
+    updateSharedExpense, deleteSharedExpense, saveProfile, refresh, fetchSharedExpenses,
   } = useExpenses();
-  const { workspace, members, loading: workspaceLoading, saving: workspaceSaving, createWorkspace } = useWorkspace();
+  const { workspace, members, invitations, incomingInvitations, loading: workspaceLoading, saving: workspaceSaving, isOwner, createWorkspace, createWorkspaceInvite, sendWorkspaceInviteEmail, cancelWorkspaceInvite, acceptWorkspaceInvite, refreshInvitations, removeWorkspaceMember, deleteWorkspace } = useWorkspace();
 
   const [activeModal, setActiveModal] = useState(null);
   const [activeMode, setActiveMode] = useState('personal');
@@ -333,6 +337,11 @@ function Dashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [pageError, setPageError] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteError, setInviteError] = useState('');
+  const [inviteNotice, setInviteNotice] = useState('');
+  const [sendingInviteId, setSendingInviteId] = useState(null);
+  const [memberActionId, setMemberActionId] = useState(null);
 
   const currencyCode = selectedCurrency || profile?.preferred_currency || 'INR';
   const isSharedMode = activeMode === 'shared';
@@ -399,10 +408,14 @@ function Dashboard() {
   };
 
   const handleUpdate = async (values) => {
-    await updateExpense(editingExpense.id, values);
+    if (isSharedMode) {
+      await updateSharedExpense(editingExpense.id, values, workspace?.id);
+    } else {
+      await updateExpense(editingExpense.id, values);
+    }
     setEditingExpense(null);
     setActiveModal(null);
-    setNotice('Expense updated successfully.');
+    setNotice(isSharedMode ? 'Shared expense updated successfully.' : 'Expense updated successfully.');
   };
 
   const handleDelete = async (expense) => {
@@ -410,8 +423,12 @@ function Dashboard() {
     if (!confirmed) return;
     setPageError('');
     try {
-      await deleteExpense(expense.id);
-      setNotice('Expense deleted.');
+      if (isSharedMode) {
+        await deleteSharedExpense(expense.id, workspace?.id);
+      } else {
+        await deleteExpense(expense.id);
+      }
+      setNotice(isSharedMode ? 'Shared expense deleted.' : 'Expense deleted.');
     } catch (err) {
       setPageError(err.message || 'Unable to delete expense.');
     }
@@ -422,6 +439,119 @@ function Dashboard() {
     setSelectedCurrency(updated.preferred_currency || 'INR');
     setActiveModal(null);
     setNotice('Profile updated successfully.');
+  };
+
+  const handleCreateInvite = async (event) => {
+    event.preventDefault();
+    setInviteError('');
+    setInviteNotice('');
+    const email = inviteEmail.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setInviteError('Enter a valid email address.');
+      return;
+    }
+    if (email === user?.email?.toLowerCase()) {
+      setInviteError('You cannot invite your own account.');
+      return;
+    }
+    try {
+      await createWorkspaceInvite(email);
+      await refreshInvitations(workspace?.id);
+      // React state updates asynchronously, so fetch the new pending invitation directly.
+      const { data: inviteRows, error: lookupError } = await supabase
+        .from('workspace_invites')
+        .select('id,invited_email,status,expires_at,created_at')
+        .eq('workspace_id', workspace.id)
+        .eq('invited_email', email)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (lookupError) throw lookupError;
+      const invite = inviteRows?.[0];
+      if (!invite?.id) {
+        setInviteEmail('');
+        setInviteNotice('Invitation created. Refresh the page if it does not appear below.');
+        return;
+      }
+
+      setSendingInviteId(invite.id);
+      try {
+        await sendWorkspaceInviteEmail(invite.id);
+        setInviteNotice(`Invitation created and email sent to ${email}.`);
+      } catch (emailErr) {
+        setInviteNotice(`Invitation saved, but the email could not be sent: ${emailErr.message}`);
+      } finally {
+        setSendingInviteId(null);
+      }
+      setInviteEmail('');
+      await refreshInvitations(workspace.id);
+    } catch (err) {
+      setInviteError(err.message || 'Unable to create the invitation.');
+    }
+  };
+
+  const handleAcceptInvite = async (inviteId) => {
+    setInviteError('');
+    try {
+      await acceptWorkspaceInvite(inviteId);
+      setActiveMode('shared');
+      setInviteNotice('You joined the Shared Workspace.');
+    } catch (err) {
+      setInviteError(err.message || 'Unable to accept this invitation.');
+    }
+  };
+
+  const handleRemoveWorkspaceMember = async (member) => {
+    const memberName = member.full_name || 'this member';
+    const confirmed = window.confirm(
+      `Remove ${memberName} from ${workspace?.name}? Their existing shared expenses will remain visible to the workspace.`
+    );
+    if (!confirmed) return;
+
+    setInviteError('');
+    setInviteNotice('');
+    setMemberActionId(member.user_id);
+    try {
+      await removeWorkspaceMember(member.user_id);
+      setInviteNotice(`${memberName} was removed from the workspace.`);
+    } catch (err) {
+      setInviteError(err.message || 'Unable to remove this member.');
+    } finally {
+      setMemberActionId(null);
+    }
+  };
+
+  const handleLeaveWorkspace = async () => {
+    const confirmed = window.confirm(
+      'Leave this Shared Workspace? You will lose access to its shared expenses. Existing records will remain for the workspace.'
+    );
+    if (!confirmed) return;
+
+    try {
+      await removeWorkspaceMember(user.id);
+      setActiveMode('personal');
+      setNotice('You left the Shared Workspace.');
+    } catch (err) {
+      setPageError(err.message || 'Unable to leave the workspace.');
+    }
+  };
+
+  const handleDeleteWorkspace = async () => {
+    const confirmed = window.confirm(
+      `Permanently delete "${workspace?.name}"? This will remove all workspace members, invitations and shared expenses. This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await deleteWorkspace();
+      setActiveMode('personal');
+      setInviteEmail('');
+      setInviteNotice('');
+      setNotice('Shared Workspace and its shared data were permanently deleted.');
+    } catch (err) {
+      setPageError(err.message || 'Unable to delete the workspace.');
+    }
   };
 
   const handleSignOut = async () => {
@@ -480,11 +610,6 @@ function Dashboard() {
         </header>
 
         <div className="dashboard-content" id="overview">
-          <div className="dashboard-mode-switch" role="group" aria-label="Expense mode">
-            <button type="button" className={`button ${!isSharedMode ? 'button--primary' : 'button--outline'}`} aria-pressed={!isSharedMode} onClick={() => setActiveMode('personal')}>Personal Mode</button>
-            <button type="button" className={`button ${isSharedMode ? 'button--primary' : 'button--outline'}`} aria-pressed={isSharedMode} onClick={() => setActiveMode('shared')}>Shared Mode</button>
-          </div>
-
           {isSharedMode && !workspace && (
             <section className="dashboard-panel shared-workspace-setup">
               <div className="dashboard-panel__heading">
@@ -502,11 +627,17 @@ function Dashboard() {
             </section>
           )}
 
-          {isSharedMode && workspace && (
-            <div className="dashboard-workspace-meta">
-              <strong>{workspace.name}</strong>
-              <span>{members.length} {members.length === 1 ? 'member' : 'members'}</span>
-            </div>
+          {incomingInvitations.length > 0 && !workspace && (
+            <section className="dashboard-panel workspace-invites workspace-invites--incoming">
+              <div className="dashboard-panel__heading"><div><h2>Shared Workspace invitations</h2><p>You have been invited using {user?.email}.</p></div><Mail size={19} /></div>
+              {inviteError && <p className="workspace-invites__message workspace-invites__message--error" role="alert">{inviteError}</p>}
+              {incomingInvitations.map((invite) => (
+                <div className="workspace-invites__item" key={invite.id}>
+                  <div><strong>Shared Workspace</strong><span>Expires {new Date(invite.expires_at).toLocaleDateString()}</span></div>
+                  <button className="button button--primary" type="button" disabled={workspaceSaving} onClick={() => handleAcceptInvite(invite.id)}>{workspaceSaving ? 'Please wait...' : 'Accept invitation'}</button>
+                </div>
+              ))}
+            </section>
           )}
 
           <div className="dashboard-heading">
@@ -515,9 +646,14 @@ function Dashboard() {
               <h1>Good {now.getHours() < 12 ? 'morning' : now.getHours() < 18 ? 'afternoon' : 'evening'}, {greetingName.split(' ')[0]}.</h1>
               <p>{isSharedMode ? 'A combined view of expenses recorded in your Shared Workspace.' : 'Here’s what’s happening with your money.'}</p>
             </div>
-            <button className="button button--primary dashboard-add-button" type="button" disabled={isSharedMode && !workspace} onClick={() => { setEditingExpense(null); setActiveModal('expense'); }}>
-              <Plus size={18} /> {isSharedMode ? 'Add shared expense' : 'Add expense'}
+            <button className={`button button--primary dashboard-add-button${isSharedMode ? ' dashboard-add-button--shared' : ''}`} type="button" disabled={isSharedMode && !workspace} onClick={() => { setEditingExpense(null); setActiveModal('expense'); }}>
+              <Plus size={20} /> <span>{isSharedMode ? 'Add shared expense' : 'Add expense'}</span>
             </button>
+          </div>
+
+          <div className="dashboard-mode-switch dashboard-mode-switch--compact" role="group" aria-label="Expense mode">
+            <button type="button" className={`button ${!isSharedMode ? 'button--primary' : 'button--outline'}`} aria-pressed={!isSharedMode} onClick={() => setActiveMode('personal')}>Personal Mode</button>
+            <button type="button" className={`button ${isSharedMode ? 'button--primary' : 'button--outline'}`} aria-pressed={isSharedMode} onClick={() => setActiveMode('shared')}>Shared Mode</button>
           </div>
 
           {(notice || pageError) && (
@@ -583,13 +719,20 @@ function Dashboard() {
                         <span className="transaction-row__icon">{expense.image_url ? <img src={expense.image_url} alt="" /> : <Icon size={19} />}</span>
                         <div className="transaction-row__details">
                           <strong>{expense.category}</strong>
-                          <span>{expense.note || 'No note'} · {formatDate(expense.expense_date)}{isSharedMode ? ` · ${expense.paid_by === user.id ? 'Paid by you' : 'Paid by workspace member'}` : ''}</span>
+                          <span>
+  {expense.note || 'No note'} · {formatDate(expense.expense_date)}
+  {isSharedMode && ` · Paid by ${expense.paid_by_name || 'Workspace member'}`}
+</span>
                         </div>
                         <strong className="transaction-row__amount">{formatMoney(expense.amount, expense.currency_code)}</strong>
                         <div className="transaction-row__actions">
                           {expense.image_url && <a href={expense.image_url} target="_blank" rel="noreferrer" className="icon-button" aria-label="View expense image"><ImageIcon size={16} /></a>}
-                          {!isSharedMode && <button type="button" className="icon-button" onClick={() => { setEditingExpense(expense); setActiveModal('expense'); }} aria-label="Edit expense"><Pencil size={16} /></button>}
-                          {!isSharedMode && <button type="button" className="icon-button icon-button--danger" onClick={() => handleDelete(expense)} aria-label="Delete expense"><Trash2 size={16} /></button>}
+                          {(!isSharedMode || expense.user_id === user?.id) && (
+                            <>
+                              <button type="button" className="icon-button" onClick={() => { setEditingExpense(expense); setActiveModal('expense'); }} aria-label="Edit expense"><Pencil size={16} /></button>
+                              <button type="button" className="icon-button icon-button--danger" onClick={() => handleDelete(expense)} aria-label="Delete expense"><Trash2 size={16} /></button>
+                            </>
+                          )}
                         </div>
                       </article>
                     );
@@ -601,6 +744,142 @@ function Dashboard() {
               <div className="dashboard-empty"><span><Receipt size={22} /></span><strong>{search ? 'No matching expenses' : 'No expenses yet'}</strong><p>{search ? 'Try another search term.' : isSharedMode ? 'Add a shared expense to start tracking workspace spending.' : 'Add your first expense to start tracking your spending.'}</p>{!search && <button className="button button--primary" type="button" onClick={() => { setEditingExpense(null); setActiveModal('expense'); }}><Plus size={17} /> {isSharedMode ? 'Add shared expense' : 'Add your first expense'}</button>}</div>
             )}
           </section>
+
+          {isSharedMode && workspace && (
+            <details className="dashboard-panel workspace-manager workspace-manager--collapsible">
+              <summary className="workspace-manager__header">
+                <div className="workspace-manager__identity">
+                  <span className="workspace-manager__icon"><UserRound size={21} /></span>
+                  <div>
+                    <span className="eyebrow">SHARED SPACE</span>
+                    <h2>{workspace.name}</h2>
+                    <p>Manage access and workspace members</p>
+                  </div>
+                </div>
+                <span className={`workspace-manager__capacity${members.length >= 2 ? ' is-full' : ''}`}>
+                  {members.length} / 2 members
+                </span>
+              </summary>
+
+              <div className="workspace-manager__body">
+              <div className="workspace-manager__member-list">
+                {members.map((member) => {
+                  const memberName = member.user_id === user?.id
+                    ? `${member.full_name || greetingName} (You)`
+                    : member.full_name || 'Workspace member';
+                  const isMemberOwner = member.role === 'owner';
+                  const initials = (member.full_name || 'M')
+                    .trim()
+                    .split(/\s+/)
+                    .slice(0, 2)
+                    .map((part) => part[0]?.toUpperCase())
+                    .join('');
+
+                  return (
+                    <div className="workspace-member-card" key={member.user_id}>
+                      <span className={`workspace-member-card__avatar${isMemberOwner ? ' is-owner' : ''}`}>
+                        {initials || <UserRound size={19} />}
+                      </span>
+                      <div className="workspace-member-card__info">
+                        <strong>{memberName}</strong>
+                        <span>{isMemberOwner ? 'Workspace owner' : 'Workspace member'}</span>
+                      </div>
+                      <span className={`workspace-member-card__role${isMemberOwner ? ' is-owner' : ''}`}>
+                        {isMemberOwner ? 'Owner' : 'Member'}
+                      </span>
+                      {isOwner && !isMemberOwner && (
+                        <button
+                          className="button button--danger-soft workspace-member-card__remove"
+                          type="button"
+                          disabled={workspaceSaving || memberActionId === member.user_id}
+                          onClick={() => handleRemoveWorkspaceMember(member)}
+                          aria-label={`Remove ${member.full_name || 'member'}`}
+                        >
+                          <Trash2 size={15} />
+                          <span>{memberActionId === member.user_id ? 'Removing...' : 'Remove'}</span>
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {isOwner && members.length < 2 && (
+                <form className="workspace-manager__invite" onSubmit={handleCreateInvite}>
+                  <div className="workspace-manager__invite-copy">
+                    <strong>Invite a workspace member</strong>
+                    <span>Share expense tracking with one other person.</span>
+                  </div>
+                  <div className="workspace-manager__invite-controls">
+                    <input
+                      type="email"
+                      value={inviteEmail}
+                      onChange={(event) => setInviteEmail(event.target.value)}
+                      placeholder="name@example.com"
+                      autoComplete="email"
+                      aria-label="Member email address"
+                      required
+                    />
+                    <button className="button button--primary" type="submit" disabled={workspaceSaving || !inviteEmail.trim()}>
+                      <UserPlus size={16} />
+                      {workspaceSaving ? 'Sending...' : 'Invite member'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {inviteError && <p className="workspace-invites__message workspace-invites__message--error" role="alert">{inviteError}</p>}
+              {inviteNotice && <p className="workspace-invites__message" role="status">{inviteNotice}</p>}
+
+              {invitations.filter((invite) => invite.status === 'pending' && new Date(invite.expires_at) > new Date()).map((invite) => (
+                <div className="workspace-invites__item" key={invite.id}>
+                  <div>
+                    <strong>{invite.invited_email}</strong>
+                    <span>Invitation pending · expires {new Date(invite.expires_at).toLocaleDateString()}</span>
+                  </div>
+                  {isOwner && (
+                    <div className="workspace-invites__actions">
+                      <button className="button button--soft" type="button" disabled={workspaceSaving || sendingInviteId === invite.id} onClick={async () => {
+                        setInviteError('');
+                        setInviteNotice('');
+                        setSendingInviteId(invite.id);
+                        try {
+                          await sendWorkspaceInviteEmail(invite.id);
+                          setInviteNotice(`Invitation email sent to ${invite.invited_email}.`);
+                        } catch (err) {
+                          setInviteError(err.message || 'Unable to send invitation email.');
+                        } finally {
+                          setSendingInviteId(null);
+                        }
+                      }}>{sendingInviteId === invite.id ? 'Sending...' : 'Resend email'}</button>
+                      <button className="button button--outline" type="button" disabled={workspaceSaving} onClick={async () => {
+                        try {
+                          await cancelWorkspaceInvite(invite.id);
+                          setInviteNotice('Invitation cancelled.');
+                        } catch (err) {
+                          setInviteError(err.message || 'Unable to cancel invitation.');
+                        }
+                      }}>Cancel</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              <div className="workspace-manager__footer">
+                <span>Shared expenses remain with the workspace when a member leaves.</span>
+                {isOwner ? (
+                  <button className="button button--danger-outline" type="button" onClick={handleDeleteWorkspace} disabled={workspaceSaving}>
+                    <Trash2 size={15} /> Delete workspace
+                  </button>
+                ) : (
+                  <button className="button button--danger-outline" type="button" onClick={handleLeaveWorkspace} disabled={workspaceSaving}>
+                    Leave workspace
+                  </button>
+                )}
+              </div>
+              </div>
+            </details>
+          )}
 
           <footer className="dashboard-footer">Spendwise <span>·</span> Daily &amp; Monthly Expense Tracker</footer>
         </div>
@@ -614,6 +893,7 @@ function Dashboard() {
             onSave={editingExpense ? handleUpdate : handleAdd}
             onCancel={() => { setActiveModal(null); setEditingExpense(null); }}
             saving={saving}
+            allowImage={!isSharedMode}
           />
         </Modal>
       )}

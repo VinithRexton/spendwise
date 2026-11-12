@@ -1,4 +1,6 @@
-@use "../abstracts/variables" as *;
+@use '../abstracts/variables' as *;
+@use './SpendWise_WorkspaceManager';
+@use './mobile-first-overrides';
 
 .dashboard-app {
   min-height: 100vh;
@@ -721,4 +723,50 @@
 
 @media (prefers-reduced-motion: reduce) {
   .dashboard-sidebar, .button, .dashboard-skeleton { animation: none; transition: none; }
+}
+
+
+/* Shared Workspace invitations */
+.dashboard-workspace-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 12px 15px;
+  border: 1px solid #e9e8ff;
+  border-radius: 12px;
+  background: #f7f6ff;
+  strong { color: #393a50; font-size: .84rem; }
+  span { color: #77798d; font-size: .74rem; }
+}
+
+.workspace-invites {
+  display: grid;
+  gap: 15px;
+  margin-bottom: 18px;
+  &__top, &__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+  }
+  &__top > div, &__item > div { display: grid; gap: 4px; min-width: 0; }
+  &__top strong, &__item strong { color: #393a50; font-size: .84rem; overflow-wrap: anywhere; }
+  &__top span, &__item span { color: #9697a8; font-size: .72rem; }
+  &__status { padding: 6px 9px; border-radius: 20px; background: #f0efff; color: $color-primary !important; font-weight: 700; white-space: nowrap; }
+  &__members { display: flex; flex-wrap: wrap; gap: 8px; }
+  &__member { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border: 1px solid #ececf3; border-radius: 9px; color: #55566a; font-size: .74rem; }
+  &__member small { color: #999aab; }
+  &__form { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px; }
+  &__item { padding-top: 12px; border-top: 1px solid #f0f0f4; }
+  &__message, &__hint { margin: 0; color: #77798d; font-size: .73rem; line-height: 1.5; }
+  &__message--error { color: #b43a3a; }
+  &__hint { color: #a0a1af; }
+}
+
+@media (max-width: 600px) {
+  .workspace-invites__form { grid-template-columns: 1fr; }
+  .workspace-invites__form .button { width: 100%; }
+  .workspace-invites__top, .workspace-invites__item { align-items: flex-start; }
 }

@@ -104,31 +104,51 @@ export function ExpenseProvider({ children }) {
 
   // Load expenses belonging to a shared workspace. This is deliberately
   // separate from fetchExpenses so Personal Mode remains isolated.
-  const fetchSharedExpenses = useCallback(async (workspaceId) => {
-    if (!user?.id || !workspaceId) {
-      setSharedExpenses([]);
-      return [];
-    }
+  
+const fetchSharedExpenses = useCallback(async (workspaceId) => {
+  if (!user?.id || !workspaceId) {
+    setSharedExpenses([]);
+    return [];
+  }
 
-    const { data, error: queryError } = await supabase
-      .from('expenses')
-      .select('id,user_id,workspace_id,paid_by,amount,currency_code,category,expense_date,note,image_path,created_at')
-      .eq('workspace_id', workspaceId)
-      .order('expense_date', { ascending: false })
-      .order('created_at', { ascending: false });
+  const { data, error: queryError } = await supabase
+    .from('expenses')
+    .select(
+      'id,user_id,workspace_id,paid_by,amount,currency_code,category,expense_date,note,image_path,created_at'
+    )
+    .eq('workspace_id', workspaceId)
+    .order('expense_date', { ascending: false })
+    .order('created_at', { ascending: false });
 
-    if (queryError) throw queryError;
+  if (queryError) throw queryError;
 
-    // Shared receipt URLs are omitted until Storage RLS is configured for
-    // workspace members. Expense records themselves remain accessible.
-    const rows = (data || []).map((expense) => ({
-      ...expense,
-      image_url: null,
-    }));
+  const { data: members, error: memberError } = await supabase
+    .rpc('get_workspace_member_names', {
+      p_workspace_id: workspaceId,
+    });
 
-    setSharedExpenses(rows);
-    return rows;
-  }, [user?.id]);
+  if (memberError) throw memberError;
+
+  const profileMap = Object.fromEntries(
+    (members || []).map((member) => [
+      member.user_id,
+      member.full_name,
+    ])
+  );
+
+  const rows = (data || []).map((expense) => ({
+    ...expense,
+    paid_by_name:
+      profileMap[expense.paid_by] ||
+      (expense.paid_by === user.id ? 'You' : 'Workspace member'),
+    // Shared receipt URLs remain disabled until shared Storage access
+    // is configured for workspace members.
+    image_url: null,
+  }));
+
+  setSharedExpenses(rows);
+  return rows;
+}, [user?.id]);
 
   const addSharedExpense = useCallback(async (values, workspaceId, paidBy = user?.id) => {
     if (!user?.id) throw new Error('You must be signed in to add an expense.');
@@ -161,13 +181,82 @@ export function ExpenseProvider({ children }) {
         .single();
 
       if (insertError) throw insertError;
-      const hydrated = { ...data, image_url: null };
-      setSharedExpenses((current) => [hydrated, ...current]);
-      return hydrated;
+      // Refresh so the new row also receives its payer's display name.
+      await fetchSharedExpenses(workspaceId);
+      return data;
     } finally {
       setSaving(false);
     }
-  }, [user?.id, profile?.preferred_currency]);
+  }, [user?.id, profile?.preferred_currency, fetchSharedExpenses]);
+
+  // Update a shared expense only when the signed-in user created it.
+  // Shared receipt uploads remain disabled until shared Storage policies are configured.
+  const updateSharedExpense = useCallback(async (expenseId, values, workspaceId) => {
+    if (!user?.id) throw new Error('You must be signed in to update an expense.');
+    if (!workspaceId) throw new Error('A shared workspace is required.');
+    if (values.imageFile || values.removeImage) {
+      throw new Error('Receipt editing for shared expenses is not enabled yet.');
+    }
+
+    setSaving(true);
+    setError('');
+
+    try {
+      const payload = {
+        amount: Number(values.amount),
+        currency_code: values.currencyCode || profile?.preferred_currency || 'INR',
+        category: values.category,
+        expense_date: values.expenseDate,
+        note: values.note?.trim() || null,
+      };
+
+      const { data, error: updateError } = await supabase
+        .from('expenses')
+        .update(payload)
+        .eq('id', expenseId)
+        .eq('workspace_id', workspaceId)
+        .eq('user_id', user.id)
+        .select('id,user_id,workspace_id,paid_by,amount,currency_code,category,expense_date,note,image_path,created_at')
+        .single();
+
+      if (updateError) throw updateError;
+
+      await fetchSharedExpenses(workspaceId);
+      return data;
+    } finally {
+      setSaving(false);
+    }
+  }, [user?.id, profile?.preferred_currency, fetchSharedExpenses]);
+
+  // Delete a shared expense only when the signed-in user created it.
+  const deleteSharedExpense = useCallback(async (expenseId, workspaceId) => {
+    if (!user?.id) throw new Error('You must be signed in to delete an expense.');
+    if (!workspaceId) throw new Error('A shared workspace is required.');
+
+    const { data: existing, error: lookupError } = await supabase
+      .from('expenses')
+      .select('id,image_path')
+      .eq('id', expenseId)
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (lookupError) throw lookupError;
+    if (!existing) {
+      throw new Error('You can only delete shared expenses that you created.');
+    }
+
+    const { error: deleteError } = await supabase
+      .from('expenses')
+      .delete()
+      .eq('id', expenseId)
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', user.id);
+
+    if (deleteError) throw deleteError;
+
+    setSharedExpenses((current) => current.filter((item) => item.id !== expenseId));
+  }, [user?.id]);
 
   const fetchProfile = useCallback(async () => {
     if (!user?.id) {
@@ -445,6 +534,8 @@ export function ExpenseProvider({ children }) {
     fetchExpenses,
     fetchSharedExpenses,
     addSharedExpense,
+    updateSharedExpense,
+    deleteSharedExpense,
     fetchProfile,
     addExpense,
     updateExpense,
@@ -452,7 +543,8 @@ export function ExpenseProvider({ children }) {
     saveProfile,
   }), [
     expenses, sharedExpenses, profile, loading, saving, error, refresh,
-    fetchExpenses, fetchSharedExpenses, addSharedExpense, fetchProfile, addExpense, updateExpense,
+    fetchExpenses, fetchSharedExpenses, addSharedExpense, updateSharedExpense,
+    deleteSharedExpense, fetchProfile, addExpense, updateExpense,
     deleteExpense, saveProfile,
   ]);
 

@@ -1,0 +1,174 @@
+
+/* SpendWise mobile-first dashboard rework */
+.dashboard-mode-switch--compact {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  width: fit-content;
+  padding: .25rem;
+  margin: .15rem 0 1rem;
+  border: 1px solid #e8e9f1;
+  border-radius: 999px;
+  background: #fff;
+}
+.dashboard-mode-switch--compact .button {
+  min-height: 2.5rem;
+  padding: .5rem 1rem;
+  border-radius: 999px;
+  font-size: .82rem;
+}
+.dashboard-add-button {
+  min-height: 3.35rem;
+  padding: .85rem 1.25rem;
+  border-radius: 1rem;
+  box-shadow: 0 8px 22px rgba(98, 87, 245, .2);
+}
+.dashboard-add-button--shared { font-weight: 750; }
+
+.workspace-manager--collapsible {
+  display: block;
+  margin-top: 1.5rem;
+  overflow: hidden;
+}
+.workspace-manager--collapsible > summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  cursor: pointer;
+  list-style: none;
+  padding: 1.2rem 1.35rem;
+}
+.workspace-manager--collapsible > summary::-webkit-details-marker { display: none; }
+.workspace-manager--collapsible > summary::after {
+  content: '+';
+  align-self: center;
+  flex: 0 0 auto;
+  color: #6257f5;
+  font-size: 1.5rem;
+  font-weight: 500;
+}
+.workspace-manager--collapsible[open] > summary::after { content: '−'; }
+.workspace-manager__body {
+  padding: 0 1.35rem 1.25rem;
+  border-top: 1px solid #ececf3;
+}
+.workspace-manager__member-list { padding-top: 1rem; }
+
+@media (max-width: 640px) {
+  .dashboard-content { padding: .85rem .75rem 1.5rem; }
+
+  .dashboard-heading {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: .8rem;
+    margin: .25rem 0 .85rem;
+  }
+  .dashboard-heading h1 {
+    max-width: 100%;
+    font-size: clamp(1.55rem, 7vw, 1.95rem);
+    line-height: 1.16;
+    letter-spacing: -.035em;
+    overflow-wrap: anywhere;
+  }
+  .dashboard-heading p { font-size: .86rem; line-height: 1.45; }
+
+  /* Primary task: record a shared expense. */
+  .dashboard-add-button,
+  .dashboard-add-button--shared {
+    display: flex;
+    width: 100%;
+    min-height: 3.65rem;
+    justify-content: center;
+    align-items: center;
+    gap: .65rem;
+    border-radius: 1rem;
+    font-size: 1rem;
+    order: 2;
+    box-shadow: 0 9px 24px rgba(98, 87, 245, .24);
+  }
+
+  /* Mode selection is secondary to the add-expense action. */
+  .dashboard-mode-switch--compact {
+    display: flex;
+    width: 100%;
+    margin: 0 0 .9rem;
+    border-radius: .9rem;
+    padding: .22rem;
+  }
+  .dashboard-mode-switch--compact .button {
+    flex: 1;
+    min-height: 2.65rem;
+    border-radius: .7rem;
+    font-size: .84rem;
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .6rem;
+    margin-bottom: .8rem;
+  }
+  .summary-card { min-width: 0; padding: .85rem; border-radius: .95rem; }
+  .summary-card strong { font-size: 1.05rem; overflow-wrap: anywhere; }
+  .summary-card:last-child { grid-column: 1 / -1; }
+
+  .dashboard-panel,
+  .transactions-panel { border-radius: 1rem; }
+  .dashboard-panel-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: .75rem; }
+  .dashboard-panel--categories,
+  .dashboard-panel--insight { min-width: 0; }
+
+  .transactions-panel { margin-top: .8rem; }
+  .transactions-panel__heading {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: .7rem;
+  }
+  .dashboard-search { width: 100%; }
+
+  /* Workspace controls are intentionally collapsed and placed after transactions. */
+  .workspace-manager--collapsible { margin-top: 1rem; border-radius: 1rem; }
+  .workspace-manager--collapsible > summary {
+    align-items: center;
+    padding: .95rem;
+  }
+  .workspace-manager__identity { align-items: center; gap: .7rem; min-width: 0; }
+  .workspace-manager__icon { width: 2.55rem; height: 2.55rem; flex: 0 0 2.55rem; }
+  .workspace-manager__identity h2 {
+    margin: .1rem 0;
+    font-size: 1.05rem;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+  .workspace-manager__identity p { font-size: .76rem; line-height: 1.35; }
+  .workspace-manager__identity .eyebrow { font-size: .65rem; letter-spacing: .12em; }
+  .workspace-manager__capacity {
+    align-self: flex-start;
+    padding: .38rem .55rem;
+    font-size: .68rem;
+    white-space: nowrap;
+  }
+  .workspace-manager__body { padding: 0 .85rem .9rem; }
+  .workspace-manager__member-list { display: grid; gap: .55rem; padding-top: .85rem; }
+  .workspace-member-card {
+    display: grid;
+    grid-template-columns: 2.6rem minmax(0, 1fr);
+    gap: .65rem;
+    padding: .75rem;
+    border-radius: .85rem;
+  }
+  .workspace-member-card__avatar { width: 2.55rem; height: 2.55rem; grid-column: 1; grid-row: 1; }
+  .workspace-member-card__info { grid-column: 2; grid-row: 1; min-width: 0; }
+  .workspace-member-card__info strong { font-size: .9rem; overflow-wrap: anywhere; }
+  .workspace-member-card__info span { font-size: .76rem; }
+  .workspace-member-card__role { grid-column: 2; grid-row: 2; justify-self: start; }
+  .workspace-member-card__remove { grid-column: 1 / -1; grid-row: 3; justify-self: stretch; }
+  .workspace-manager__invite { margin-top: .8rem; padding: .8rem; }
+  .workspace-manager__invite-controls { display: grid; grid-template-columns: minmax(0, 1fr); gap: .55rem; }
+  .workspace-manager__invite-controls input,
+  .workspace-manager__invite-controls .button { width: 100%; min-height: 3rem; }
+  .workspace-manager__footer { display: flex; flex-direction: column; align-items: stretch; gap: .65rem; }
+  .workspace-manager__footer .button { width: 100%; min-height: 2.8rem; }
+}
